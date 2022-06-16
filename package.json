@@ -17,7 +17,14 @@
     "webpack": "^5.73.0"
   },
   "dependencies": {
+    "@middy/core": "^3.0.4",
+    "@middy/http-error-handler": "^3.0.4",
+    "@middy/http-event-normalizer": "^3.0.4",
+    "@middy/http-json-body-parser": "^3.0.4",
+    "amazon-cognito-identity-js": "^5.2.9",
     "aws-sdk": "^2.1154.0",
+    "http-errors": "^2.0.0",
+    "serverless": "^3.19.0",
     "uuid": "^8.3.2"
   }
 }

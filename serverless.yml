@@ -31,14 +31,13 @@ provider:
         - Effect: Allow
           Action: 
             - dynamodb:PutItem
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:UpdateItem
           Resource: 
-            - 'arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/AuctionsTable'
+            - arn:aws:dynamodb:${aws:region}:${aws:accountId}:table/AuctionsTable
 
-# you can define service wide environment variables here
-#  environment:
-#    variable1: value1
 
-# you can add packaging information here
 package:
   individually: true
 
@@ -49,6 +48,47 @@ functions:
       - http:
           method: POST
           path: /auction
+          authorizer:
+            type: COGNITO_USER_POOLS
+            authorizerId:
+              Ref: ApiGatewayAuthorizer
+          cors:
+            headers:
+              - Content-Type
+              - X-Amz-Date
+              - Authorization
+              - X-Api-Key
+              - X-Amz-Security-Token
+              - X-Amz-User-Agent
+            allowCredentials: true
+
+  getAuctions:
+    handler: src/functions/getAuctions.handler
+    events:
+      - http:
+          method: GET
+          path: /auctions
+
+  getAuction:
+    handler: src/functions/getAuction.handler
+    events:
+      - http:
+          method: GET
+          path: /auction/{id}
+
+  placeBid:
+    handler: src/functions/placeBid.handler
+    events:
+      - http:
+          method: PATCH
+          path: auction/{id}/bid
+
+  cognitoLogin:
+    handler: src/functions/cognitoLogin.handler
+    events:
+      - http:
+          method: POST
+          path: cognito/login
 
 resources:
   Resources:
@@ -63,6 +103,42 @@ resources:
         KeySchema:
           - AttributeName: id
             KeyType: HASH
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool      
+      Properties:
+        UserPoolName: ${self:provider.stage}-user-pool
+        UsernameAttributes:
+          - email
+        AutoVerifiedAttributes:
+          - email
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 6
+            RequireLowercase: False
+            RequireNumbers: True
+            RequireSymbols: False
+            RequireUppercase: True
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        ClientName: ${self:provider.stage}-user-pool-client
+        UserPoolId:
+            Ref: CognitoUserPool
+        ExplicitAuthFlows:
+            - ADMIN_NO_SRP_AUTH
+        GenerateSecret: false
+    ApiGatewayAuthorizer:
+      DependsOn:
+        - ApiGatewayRestApi
+      Type: AWS::ApiGateway::Authorizer
+      Properties:
+        Name: cognito-authorizer
+        IdentitySource: method.request.header.Authorization
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        Type: COGNITO_USER_POOLS
+        ProviderARNs:
+          - Fn::GetAtt: [CognitoUserPool, Arn]
 
 plugins:
   - serverless-offline
